@@ -1,0 +1,125 @@
+do{ my $x = [
+       {
+         'ARGV' => []
+       },
+       {},
+       {
+         'dist_name' => 'CCR-Utilities-General',
+         'share_dir' => undef,
+         'extra_compiler_flags' => [],
+         'build_requires' => {
+                               'Test::More' => 0
+                             },
+         'debugger' => undef,
+         'metafile' => 'META.yml',
+         'c_source' => undef,
+         'extra_linker_flags' => [],
+         'dist_version' => '0.02',
+         'create_license' => undef,
+         'install_path' => {},
+         'dist_suffix' => undef,
+         '_added_to_INC' => [],
+         'dist_author' => [
+                            'Jianxin Wang <jw24@buffalo.edu>'
+                          ],
+         'test_file_exts' => [
+                               '.t'
+                             ],
+         'get_options' => {},
+         'pm_files' => undef,
+         'build_script' => 'Build',
+         'module_name' => 'CCR::Utilities::General',
+         'include_dirs' => [],
+         'quiet' => undef,
+         'bundle_inc_preload' => [],
+         'mymetafile2' => 'MYMETA.json',
+         'tap_harness_args' => {},
+         'allow_mb_mismatch' => 0,
+         'libdoc_dirs' => [
+                            'blib/lib',
+                            'blib/arch'
+                          ],
+         'program_name' => undef,
+         'create_readme' => undef,
+         'cpan_client' => 'cpan',
+         'mymetafile' => 'MYMETA.yml',
+         'html_css' => '',
+         'PL_files' => undef,
+         'prereq_action_types' => [
+                                    'requires',
+                                    'build_requires',
+                                    'test_requires',
+                                    'conflicts',
+                                    'recommends'
+                                  ],
+         'script_files' => undef,
+         'pollute' => undef,
+         'dist_abstract' => undef,
+         'pureperl_only' => 0,
+         'destdir' => undef,
+         'verbose' => undef,
+         'mb_version' => '0.4205',
+         'installdirs' => 'site',
+         'install_base' => undef,
+         'build_elements' => [
+                               'PL',
+                               'support',
+                               'pm',
+                               'xs',
+                               'share_dir',
+                               'pod',
+                               'script'
+                             ],
+         'use_tap_harness' => 0,
+         'meta_merge' => {},
+         'recursive_test_files' => undef,
+         'install_base_relpaths' => {},
+         'allow_pureperl' => 0,
+         'configure_requires' => {
+                                   'Module::Build' => 0
+                                 },
+         'prefix' => undef,
+         'prefix_relpaths' => {},
+         'config' => undef,
+         'sign' => undef,
+         'test_files' => undef,
+         'bindoc_dirs' => [
+                            'blib/script'
+                          ],
+         'metafile2' => 'META.json',
+         'release_status' => 'stable',
+         'original_prefix' => {},
+         'xs_files' => undef,
+         'conflicts' => {},
+         'needs_compiler' => '',
+         'meta_add' => {},
+         'use_rcfile' => 1,
+         'build_bat' => 0,
+         'pod_files' => undef,
+         'perl' => '/util/academic/perl/5.20.2/bin/perl',
+         'auto_configure_requires' => 1,
+         'test_requires' => {},
+         'debug' => undef,
+         'recommends' => {},
+         'autosplit' => undef,
+         'orig_dir' => '/user/jw24/Git/CCR-Utilities-General',
+         'recurse_into' => [],
+         'has_config_data' => undef,
+         'dist_version_from' => 'lib/CCR/Utilities/General.pm',
+         'blib' => 'blib',
+         'bundle_inc' => [],
+         'config_dir' => '_build',
+         'scripts' => undef,
+         'build_class' => 'Module::Build',
+         'create_makefile_pl' => 'traditional',
+         'magic_number' => undef,
+         'dynamic_config' => 1,
+         'install_sets' => {},
+         'requires' => {},
+         'base_dir' => '/user/jw24/Git/CCR-Utilities-General',
+         'license' => 'artistic_2',
+         'create_packlist' => 1,
+         'extra_manify_args' => undef
+       }
+     ];
+$x; }

@@ -1,0 +1,22 @@
+---
+abstract: 'The great new CCR::Utilities::General!'
+author:
+  - 'Jianxin Wang <jw24@buffalo.edu>'
+build_requires:
+  Test::More: '0'
+configure_requires:
+  Module::Build: '0'
+dynamic_config: 0
+generated_by: 'Module::Build version 0.4205, CPAN::Meta::Converter version 2.140640'
+license: artistic_2
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: '1.4'
+name: CCR-Utilities-General
+provides:
+  CCR::Utilities::General:
+    file: lib/CCR/Utilities/General.pm
+    version: '0.02'
+resources:
+  license: http://opensource.org/licenses/artistic-license-2.0.php
+version: '0.02'
