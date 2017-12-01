@@ -138,7 +138,27 @@ sub create_submit_slurm_job {
                 required => 1,
                 default  => 'none'
             },
-            output => {
+       		exe => {
+                type     => SCALAR,
+                required => 0,
+                default  => undef
+            },
+       		arg => {
+                type     => SCALAR,
+                required => 0,
+                default  => undef
+            },
+       		errorfile => {
+                type     => SCALAR,
+                required => 0,
+                default  => undef
+            },
+	        logfile => {
+                type     => SCALAR,
+                required => 0,
+                default  => undef
+            },
+            outfile=> {
                 type     => SCALAR,
                 required => 1,
                 default  => undef
@@ -157,7 +177,9 @@ sub create_submit_slurm_job {
     my $script = join( '/', $args{'script_dir'}, $args{'script'} );
 
     open( FH, ">$script" ) or Carp::croak("Cannot open file $script: $!");
-	print FH <<EOF;
+
+	if ($args{partition} eq 'general-compute' or $args{partition} eq 'industry') {
+		print FH <<EOF;
 #!/bin/bash
 #SBATCH --partition=$args{partition}
 #SBATCH --clusters=$args{cluster}
@@ -169,24 +191,24 @@ sub create_submit_slurm_job {
 #SBATCH --job-name=$args{job_name}
 EOF
 
-if ($args{dependency} ne 'none' ){
-	print FH <<EOF;
+		if ($args{dependency} ne 'none' ){
+			print FH <<EOF;
 #SBATCH --dependency=afterok:$args{dependency}
 EOF
-}
-print FH <<EOF;
-#SBATCH --output=$args{output}
+		}
+		print FH <<EOF;
+#SBATCH --output=$args{logfile}
 #SBATCH --account=$args{account}
 #SBATCH --requeue
 #SBATCH --mail-user=$args{email}
 
 EOF
-if ($args{sendemail} eq 'Y') {
-	print FH <<EOF;
+		if ($args{sendemail} eq 'Y') {
+			print FH <<EOF;
 #SBATCH --mail-type=END
 EOF
-}
-print FH <<EOF;
+		}
+		print FH <<EOF;
 ulimit -s unlimited
 
 $modules
@@ -201,9 +223,169 @@ echo \"SLURMTMPDIR=\"\$SLURMTMPDIR
 echo \"working directory = \"\$SLURM_SUBMIT_DIR
 echo \"Slurm job submitted sccessfully!\"
 EOF
-    close FH;
+	} elsif ($args{partition} eq 'scavenger') {
+		print FH <<EOF;
+#!/bin/bash
+#SBATCH --time=$args{time}
+#SBATCH --nodes=$args{nodes}
+#SBATCH --mem=$args{memory}
+#SBATCH --ntasks-per-node=$args{ntasks_per_node}
+#SBATCH --job-name=$args{job_name}
+#SBATCH --output=$args{logfile}
+EOF
 
-   # check if we can submit the job (max 1000 jobs)
+		if ($args{dependency} ne 'none' ){
+			print FH <<EOF;
+#SBATCH --dependency=afterok:$args{dependency}
+EOF
+		}
+		print FH <<EOF;
+#SBATCH --account=$args{account}
+#SBATCH --requeue
+#SBATCH --mail-user=$args{email}
+EOF
+		if ($args{sendemail} eq 'Y') {
+			print FH "#SBATCH --mail-type=END";
+		}
+		print FH <<EOF;
+
+echo \"SLURM_JOBID=\"\$SLURM_JOBID
+echo \"SLURM_JOB_NODELIST\"=\$SLURM_JOB_NODELIST
+echo \"SLURM_NNODES\"=\$SLURM_NNODES
+echo \"SLURMTMPDIR=\"\$SLURMTMPDIR
+echo \"working directory = \"\$SLURM_SUBMIT_DIR
+
+$modules
+module load dmtcp/2.5.0
+ulimit -s unlimited
+
+#
+# How long to run the application before checkpointing.
+# After checkpointing, the application will be shut down. 
+# Users will typically want to set this to occur a bit before 
+# the job's walltime expires.
+#
+CHECKPOINT_TIME=60m
+
+# EXE is the name of the application/executable
+# ARGS is any command-line args
+# OUTFILE is the file where stdout will be redirected
+# ERRFILE if the file where stderr will be redirected
+EXE=$args{'exe'}
+ARGS=$args{'arg'}
+OUTFILE=$args{'outfile'}
+ERRFILE=$args{'errorfile'}
+
+# This script with auto-sense whether to perform a checkpoint
+# or restart operation. Set FORCE_CHECKPOINT to yes if you 
+# DO NOT want to restart even if a restart script is located 
+# in the working directory.
+FORCE_CHECKPOINT=No
+
+# *************************************************************************************************
+# *************************************************************************************************
+# Users should not have to change anything beyond this point!
+# *************************************************************************************************
+# *************************************************************************************************
+export DMTCP_TMPDIR=\$SLURM_SUBMIT_DIR
+
+# =================================================================================================
+# start_coordinator() 
+#   Routine provided by Artem Polyakov
+#
+# Start dmtcp coordinator on launching node. Free TCP port is automatically allocated.
+# this function creates dmtcp_command.\$JOBID script that serves like a wrapper around
+# dmtcp_command that tunes it on exact dmtcp_coordinator (it's host name and port)
+# instead of typing "dmtcp_command -h <coordinator host name> -p <coordinator port> <command>"
+# you just type "dmtcp_command.\$JOBID <command>" and talk to coordinator of JOBID job
+# =================================================================================================
+start_coordinator()
+{
+    fname=dmtcp_command.\$SLURM_JOBID
+    h=`hostname -s`
+    echo "dmtcp_coordinator --daemon --exit-on-last -p 0 --port-file \$fname \$\@ 1>/dev/null 2>&1"
+    dmtcp_coordinator --daemon --exit-on-last -p 0 --port-file \$fname \$\@ 1>/dev/null 2>&1
+    
+    while true; do 
+        if [ -f \"\$fname\" ]; then
+            p=`cat \$fname`
+            if [ -n \"\$p\" ]; then
+                # try to communicate ? dmtcp_command -p \$p l
+                break
+            fi
+        fi
+    done
+    
+    # Create dmtcp_command wrapper for easy communication with coordinator
+    p=`cat \$fname`
+    chmod +x \$fname
+    echo \"#!/bin/bash\" > \$fname
+    echo >> \$fname
+    echo \"export PATH=\$PATH" >> \$fname
+    echo \"export DMTCP_HOST=\$h\" >> \$fname
+    echo \"export DMTCP_PORT=\$p\" >> \$fname
+    echo \"export DMTCP_COORD_HOST=\$h\" >> \$fname
+    echo \"export DMTCP_COORD_PORT=\$p\" >> \$fname
+    echo \"dmtcp_command \$\@\" >> \$fname
+
+    # Setup local environment for DMTCP
+    export DMTCP_HOST=\$h
+    export DMTCP_PORT=\$p
+    export DMTCP_COORD_HOST=\$h
+    export DMTCP_COORD_PORT=\$p
+}
+
+echo "Launching dmtcp coordintor daemon"
+echo "start_coordinator --exit-after-ckpt"
+start_coordinator --exit-after-ckpt
+
+# convert checkpoint time to seconds
+nTics=`echo \$CHECKPOINT_TIME | \
+sed 's/m/ \* 60/g' | \
+sed 's/h/ \* 3600/g' | \
+sed 's/d/ \* 86400/g' | \
+sed 's/s//g' | \
+bc | \
+awk '{ printf(\"\%d\\n\", \$1); }'`
+echo "Checkpointing will commence after \$nTics seconds"
+
+tic=`date +%s`
+if [[ -f ./dmtcp_restart_script.sh ]] && [[ \"\${FORCE_CHECKPOINT}\" == \"No\" ]]; then
+  echo \"Restarting application under dmtcp control\"
+  echo \"./dmtcp_restart_script.sh -h \$DMTCP_HOST -p \$DMTCP_PORT -i \$nTics 1>>\$OUTFILE 2>>\$ERRFILE\"
+  ./dmtcp_restart_script.sh -h \$DMTCP_HOST -p \$DMTCP_PORT -i \$nTics 1>>\${OUTFILE}.\${SLURM_JOB_ID} 2>>\${ERRFILE}.\${SLURM_JOB_ID}
+  cat \${OUTFILE}.\${SLURM_JOB_ID} >> \${OUTFILE}
+  rm -f \${OUTFILE}.\${SLURM_JOB_ID}
+  cat \${ERRFILE}.\${SLURM_JOB_ID} >> \${ERRFILE}
+  rm -f \${ERRFILE}.\${SLURM_JOB_ID}
+else
+  # clear output and error files
+  echo \"\" > \${OUTFILE}
+  echo \"\" > \${ERRFILE}
+  echo \"Launching application under dmtcp control\"
+  echo \"srun dmtcp_launch --quiet --rm -i \$nTics \$EXE \$ARGS 1>\${OUTFILE} 2>\${ERRFILE}\"
+  srun dmtcp_launch --quiet --rm -i \$nTics \$EXE \$ARGS 1>\${OUTFILE} 2>\${ERRFILE}
+fi
+toc=`date +%s`
+
+elapsedTime=`expr \$toc - \$tic`
+overheadTime=`expr \$elapsedTime - \$nTics`
+if [ \"\$overheadTime" -lt \"0\" ]; then
+  overheadTime=0
+  echo \"All done - no checkpoint was required."
+else
+  echo "All done - checkpoint files are listed below:"
+  ls -1 *.dmtcp
+fi
+
+echo "Elapsed Time = \$elapsedTime seconds"
+echo "Checkpoint Overhead = \$overheadTime seconds"
+
+EOF
+	}
+
+    close FH;
+    # check if we can submit the job (max 1000 jobs)
     while (1) {
         my $num_slurm_jobs = count_slurm_jobs($args{cluster});
 
@@ -215,11 +397,22 @@ EOF
             # check if we want to just generate slurm scripts for testing/debuging
             if ( $args{'debug'} eq 'N' ) {
                 # submit the job
-                $rv = `sbatch $script`;
+                if ($args{partition} eq 'general-compute' || $args{partition} eq 'industry'){
+                	$rv = `sbatch $script`;
+				} elsif ($args{partition} eq 'scavenger') {
+					my $tmp = `scabatch $script`;
+					($rv) = $tmp =~ /.*?job (\d+) .*/ms;
+				}
             } else {
-                $rv = `sbatch -H $script`; # submit but hold the job
+				if ($args{partition} eq 'general-compute' || $args{partition} eq 'industry'){
+                	$rv = `sbatch -H $script`; # submit but hold the job
+				} elsif ($args{partition} eq 'scavenger') {
+					my $tmp = `scabatch $script`;
+					($rv) = $tmp =~ /.*?job (\d+) .*/ms;
+				}
             }
             my ($slurm_jobid) = $rv =~ /.*?(\d+)/;
+	
             return ($slurm_jobid);
         }
     }
@@ -328,3 +521,4 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;    # End of CCR::Utilities::General
+
