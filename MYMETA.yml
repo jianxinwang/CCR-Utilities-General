@@ -16,7 +16,7 @@ name: CCR-Utilities-General
 provides:
   CCR::Utilities::General:
     file: lib/CCR/Utilities/General.pm
-    version: '0.02'
+    version: '0.03'
 resources:
   license: http://opensource.org/licenses/artistic-license-2.0.php
-version: '0.02'
+version: '0.03'

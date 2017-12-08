@@ -173,17 +173,28 @@ sub create_submit_slurm_job {
     }
 
     my $modules = join( "\n", @list_of_modules );
-
+	my $clusters = 'ub-hpc';
+	my $qos = 'ub-hpc';
     my $script = join( '/', $args{'script_dir'}, $args{'script'} );
-
+	my $email = $args{email} .'@buffalo.edu';
     open( FH, ">$script" ) or Carp::croak("Cannot open file $script: $!");
 
 	if ($args{partition} eq 'general-compute' or $args{partition} eq 'industry') {
+		my $command;
+		if (defined $args{'exe'} and $args{'arg'} ){
+			$command = $args{'exe'} .' '. $args{'arg'} .' >  '. $args{'outfile'};
+		} else {
+			$command = $args{'command'};
+		}
+		if ($args{partition} eq 'industry') {
+			$clusters = 'industry';
+			$qos = 'industry';
+		}
 		print FH <<EOF;
 #!/bin/bash
 #SBATCH --partition=$args{partition}
-#SBATCH --clusters=$args{cluster}
-#SBATCH --qos=$args{qos}
+#SBATCH --clusters=$clusters
+#SBATCH --qos=$qos
 #SBATCH --time=$args{time}
 #SBATCH --nodes=$args{nodes}
 #SBATCH --mem=$args{memory}
@@ -200,7 +211,7 @@ EOF
 #SBATCH --output=$args{logfile}
 #SBATCH --account=$args{account}
 #SBATCH --requeue
-#SBATCH --mail-user=$args{email}
+#SBATCH --mail-user=$email
 
 EOF
 		if ($args{sendemail} eq 'Y') {
@@ -214,7 +225,7 @@ ulimit -s unlimited
 $modules
 
 echo "Launch job"
-$args{'command'}
+$command
 
 echo \"SLURM_JOBID=\"\$SLURM_JOBID
 echo \"SLURM_JOB_NODELIST\"=\$SLURM_JOB_NODELIST
@@ -228,10 +239,12 @@ EOF
 #!/bin/bash
 #SBATCH --time=$args{time}
 #SBATCH --nodes=$args{nodes}
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=$args{memory}
 #SBATCH --ntasks-per-node=$args{ntasks_per_node}
 #SBATCH --job-name=$args{job_name}
 #SBATCH --output=$args{logfile}
+##SBATCH --constraint=IB&CPU-E5-2650v2
 EOF
 
 		if ($args{dependency} ne 'none' ){
@@ -242,7 +255,7 @@ EOF
 		print FH <<EOF;
 #SBATCH --account=$args{account}
 #SBATCH --requeue
-#SBATCH --mail-user=$args{email}
+#SBATCH --mail-user=$email
 EOF
 		if ($args{sendemail} eq 'Y') {
 			print FH "#SBATCH --mail-type=END";
@@ -265,7 +278,7 @@ ulimit -s unlimited
 # Users will typically want to set this to occur a bit before 
 # the job's walltime expires.
 #
-CHECKPOINT_TIME=60m
+CHECKPOINT_TIME=30m
 
 # EXE is the name of the application/executable
 # ARGS is any command-line args
@@ -336,8 +349,8 @@ start_coordinator()
 }
 
 echo "Launching dmtcp coordintor daemon"
-echo "start_coordinator --exit-after-ckpt"
-start_coordinator --exit-after-ckpt
+echo "start_coordinator"
+start_coordinator 
 
 # convert checkpoint time to seconds
 nTics=`echo \$CHECKPOINT_TIME | \
@@ -387,7 +400,7 @@ EOF
     close FH;
     # check if we can submit the job (max 1000 jobs)
     while (1) {
-        my $num_slurm_jobs = count_slurm_jobs($args{cluster});
+        my $num_slurm_jobs = count_slurm_jobs($clusters);
 
         if ( $num_slurm_jobs > 995 ) { # CCR allows max 1000 jobs per user, so leave 5 free slots for other use
             sleep(60);
@@ -400,15 +413,23 @@ EOF
                 if ($args{partition} eq 'general-compute' || $args{partition} eq 'industry'){
                 	$rv = `sbatch $script`;
 				} elsif ($args{partition} eq 'scavenger') {
-					my $tmp = `scabatch $script`;
-					($rv) = $tmp =~ /.*?job (\d+) .*/ms;
+					while (1) {
+                        my $tmp = `scabatch $script`;
+                        ($rv) = $tmp =~ /.*?job (\d+) .*/ms;
+                        last if (defined $rv);
+                        sleep(60);
+                    }
 				}
             } else {
 				if ($args{partition} eq 'general-compute' || $args{partition} eq 'industry'){
                 	$rv = `sbatch -H $script`; # submit but hold the job
 				} elsif ($args{partition} eq 'scavenger') {
-					my $tmp = `scabatch $script`;
-					($rv) = $tmp =~ /.*?job (\d+) .*/ms;
+					while (1) {
+						my $tmp = `scabatch $script`;
+						($rv) = $tmp =~ /.*?job (\d+) .*/ms;
+						last if (defined $rv);
+						sleep(60);
+					}
 				}
             }
             my ($slurm_jobid) = $rv =~ /.*?(\d+)/;
