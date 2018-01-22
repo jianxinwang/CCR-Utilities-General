@@ -221,11 +221,11 @@ EOF
 		}
 		print FH <<EOF;
 ulimit -s unlimited
-
+set -e
 $modules
 
 echo "Launch job"
-$command
+$command 
 
 echo \"SLURM_JOBID=\"\$SLURM_JOBID
 echo \"SLURM_JOB_NODELIST\"=\$SLURM_JOB_NODELIST
@@ -267,10 +267,15 @@ echo \"SLURM_JOB_NODELIST\"=\$SLURM_JOB_NODELIST
 echo \"SLURM_NNODES\"=\$SLURM_NNODES
 echo \"SLURMTMPDIR=\"\$SLURMTMPDIR
 echo \"working directory = \"\$SLURM_SUBMIT_DIR
-
+set -e
 $modules
 module load dmtcp/2.5.0
 ulimit -s unlimited
+
+function fail {
+    echo "FAIL: $@" >&2
+    exit 1  # signal failure
+}
 
 #
 # How long to run the application before checkpointing.
